@@ -21,6 +21,8 @@ class GqlBlocGenerator extends Generator {
 
     if (getArgumentsClass(library) == null) {
       sourceCode = clear_argumetns(sourceCode);
+    } else {
+      sourceCode = sourceCode.replaceAll('// keepArgsPlaceholder', keepArgsTemplate);
     }
     sourceCode = hydratedEditor(library, sourceCode);
     sourceCode = sourceCode
@@ -36,7 +38,9 @@ class GqlBlocGenerator extends Generator {
   }
 
   String clear_argumetns(String sourceCode) {
+    sourceCode = sourceCode.replaceAll('this.loadingItems.add(args);', '');
     sourceCode = sourceCode.replaceAll('variables: event.args', '');
+    sourceCode = sourceCode.replaceAll('variables: args', '');
     sourceCode = sourceCode.replaceAll('final TemplateArguments? args;', '');
     sourceCode =
         sourceCode.replaceAll('final TemplateArguments? withArgs;', '');
@@ -44,15 +48,21 @@ class GqlBlocGenerator extends Generator {
     sourceCode = sourceCode.replaceAll('TemplateArguments withArgs;', '');
     sourceCode = sourceCode.replaceAll('TemplateArguments? args;', '');
     sourceCode = sourceCode.replaceAll('TemplateArguments? withArgs;', '');
+    sourceCode = sourceCode.replaceAll('List<dynamic> loadingItems = [];', '');
+    sourceCode = sourceCode.replaceAll('this.loadingItems.add(event.args);', '');
+    sourceCode = sourceCode.replaceAll('loadingItems: this.loadingItems', '');
+    sourceCode = sourceCode.replaceAll('List<dynamic>? loadingItems;', '');
+    sourceCode = sourceCode.replaceAll('TemplateLoadingState({this.loadingItems});', '');
 
     sourceCode = sourceCode.replaceAll(', this.withArgs', '');
     sourceCode = sourceCode.replaceAll(', this.args', '');
-    sourceCode = sourceCode.replaceAll('this.withArgs', '');
-    sourceCode = sourceCode.replaceAll('this.args', '');
+    sourceCode = sourceCode.replaceAll('this.withArgs,', '');
+    sourceCode = sourceCode.replaceAll('this.args,', '');
     sourceCode = sourceCode.replaceAll('event.withArgs', '');
     sourceCode = sourceCode.replaceAll('event.args', '');
     sourceCode = sourceCode.replaceAll('withArgs', '');
     sourceCode = sourceCode.replaceAll('args', '');
+    sourceCode = sourceCode.replaceAll(', args', '');
     return sourceCode;
   }
 
@@ -97,7 +107,6 @@ class GqlBlocGenerator extends Generator {
             e.type.toString().contains("Payload") ||
             e.type.toString().contains("Mutation");
       });
-
       if (isQuery(library) &&
           nodeField.type.toString().contains("Connection")) {
         sourceCode = sourceCode
@@ -120,6 +129,7 @@ class GqlBlocGenerator extends Generator {
               nodeField.type.toString().replaceAll("?", ""));
       return sourceCode;
     } catch (e) {
+      print(e);
       sourceCode = sourceCode.replaceAll('#rootNode', 'rootNode');
       return sourceCode;
     }
@@ -159,15 +169,19 @@ class GqlBlocGenerator extends Generator {
   late String template = """  
   class TemplateBloc extends Bloc<TemplateEvent, TemplateState> {
     TemplateBloc() : super(TemplateInitial());
+    List<dynamic> loadingItems = [];
     
     @override
     Stream<TemplateState> mapEventToState(TemplateEvent event) async*{
       if(event is LoadTemplateEvent) {
+        // keepArgsPlaceholder
+        this.loadingItems.add(args);
+        yield TemplateLoadingState(loadingItems: this.loadingItems);
         final client = GraphQL.instance;
         client.then((client) => client
-            .execute(TemplateQuery(variables: event.args))
+            .execute(TemplateQuery(variables: args))
             .then((response) => (response.errors == null)
-            ? this.add(TemplateLoadedEvent(response.data?.#rootNode, event.args))
+            ? this.add(TemplateLoadedEvent(response.data?.#rootNode, args))
             : this.add(TemplateErrorEvent(response.errors)))
             .catchError((error) => this.add(TemplateExceptionEvent(error))));
       // loadMoreEventHandlerPlaceholder
@@ -195,7 +209,8 @@ class GqlBlocGenerator extends Generator {
   
   class LoadTemplateEvent extends TemplateEvent {
     TemplateArguments args;
-    LoadTemplateEvent(this.args);
+    bool keepPreviousArgs;
+    LoadTemplateEvent(this.args, {this.keepPreviousArgs = false});
   
     @override
     List<Object> get props => [args];
@@ -256,6 +271,9 @@ class GqlBlocGenerator extends Generator {
   
   
   class TemplateLoadingState extends TemplateState {
+    List<dynamic>? loadingItems;
+
+    TemplateLoadingState({this.loadingItems});
     @override
     List<Object> get props => [];
   }
@@ -327,11 +345,12 @@ class GqlBlocGenerator extends Generator {
    } else if (event is LoadMoreTemplateEvent) {
         final state = this.state;
         if (state is TemplateLoadedState) {
+          yield TemplateLoadingState();
           final client = GraphQL.instance;
-          dynamic args =  state.withArgs;
+          dynamic args = state.withArgs?.toJson();
           // coursorUpdatePlaceholder
           client.then((client) => client
-              .execute(TemplateQuery(variables: args))
+              .execute(TemplateQuery(variables: TemplateArguments.fromJson(args)))
               .then((response) => (response.errors == null)
                   ? #rootNodeLoadedMore(response.data?.#rootNode, state)
                   : this.add(TemplateErrorEvent(response.errors)))
@@ -343,17 +362,30 @@ class GqlBlocGenerator extends Generator {
   late String loadMoreMethodTemplate = """
   void #rootNodeLoadedMore(
       TemplateNodeConnection? #rootNode, TemplateLoadedState state) {
-      #rootNode?.edges = state.#rootNode.edges + #rootNode.edges;
+      #rootNode?.edges = (state.#rootNode.edges + #rootNode.edges).toSet().toList();
       this.add(TemplateLoadedEvent(#rootNode, state.withArgs));
     }
   """;
 
   late String coursorUpdateTemplate = """
   if (state.#rootNode.pageInfo != null) {
-     args.startsWith = state.#rootNode.pageInfo.endCursor;
+     args['after'] = state.#rootNode.pageInfo.endCursor;
   }
   """;
 
+  late String keepArgsTemplate = """
+  TemplateArguments args = event.args;
+  final state = this.state;
+  if (event.keepPreviousArgs && state is TemplateLoadedState){
+     final previousArgs = state.withArgs?.toJson();
+     final currentArgs = args.toJson();
+     if(previousArgs != null){
+        currentArgs.removeWhere((key, value) => value == null);
+        previousArgs.addAll(currentArgs);
+        args = TemplateArguments.fromJson(previousArgs);
+     }
+  }
+  """;
   bool isQuery(LibraryReader library) {
     return library.classes
         .where((e) => e.displayName.contains('\$Query'))
