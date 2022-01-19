@@ -1,9 +1,9 @@
 builders:
-  gqlBlogBuilder:
+  gql_bloc_gen:
     import: "package:gql_bloc_gen/gql_bloc_gen.dart"
     builder_factories: ["gqlBlogBuilder"]
     # The `partId` argument to `SharedPartBuilder` is "some_cool_builder"
-    build_extensions: {".dart": [".g.part"]}
+    build_extensions: {".dart": [".info.dart"]}
     auto_apply: dependents
     build_to: cache
     # To copy the `.g.part` content into `.g.dart` in the source tree

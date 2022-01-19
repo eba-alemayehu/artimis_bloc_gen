@@ -24,6 +24,7 @@ class GqlBlocGenerator extends Generator {
     } else {
       sourceCode = sourceCode.replaceAll('// keepArgsPlaceholder', keepArgsTemplate);
     }
+
     sourceCode = hydratedEditor(library, sourceCode);
     sourceCode = sourceCode
         .replaceAll('TemplateQuery',
@@ -31,9 +32,8 @@ class GqlBlocGenerator extends Generator {
         .replaceAll('Template', getClassName(library))
         .replaceAll('GraphQL.instance',
             builderOptions.config['graphql_client']['object'].toString());
-
     buffer.writeln(sourceCode);
-
+    // print(buffer.toString());
     return "${buffer.toString()}";
   }
 
@@ -107,6 +107,7 @@ class GqlBlocGenerator extends Generator {
             e.type.toString().contains("Payload") ||
             e.type.toString().contains("Mutation");
       });
+
       if (isQuery(library) &&
           nodeField.type.toString().contains("Connection")) {
         sourceCode = sourceCode
@@ -137,6 +138,7 @@ class GqlBlocGenerator extends Generator {
 
   String loadMoreHandelerEdit(String sourceCode) {
     sourceCode = sourceCode
+        .replaceAll('// loadMoreEventHandlerPlaceholderOn', 'on<LoadMoreTemplateEvent>(_onLoadMoreTemplateEvent);')
         .replaceAll(
             '// loadMoreEventHandlerPlaceholder', loadMoreHandlerTemplate)
         .replaceAll('// loadMoreMethodPlaceholder', loadMoreMethodTemplate)
@@ -168,15 +170,21 @@ class GqlBlocGenerator extends Generator {
 
   late String template = """  
   class TemplateBloc extends Bloc<TemplateEvent, TemplateState> {
-    TemplateBloc() : super(TemplateInitial());
+    TemplateBloc() : super(TemplateInitial()) {
+      on<LoadTemplateEvent>(_onLoadTemplateEvent);
+      on<TemplateLoadedEvent>((event, emit) => TemplateLoadedState(event.#rootNode, event.withArgs));
+      on<TemplateErrorEvent>((event, emit) => TemplateErrorState(event.errors));
+      on<TemplateExceptionEvent>((event, emit) => TemplateExceptionState(event.exception));
+      // loadMoreEventHandlerPlaceholderOn
+    }
+    
     List<dynamic> loadingItems = [];
     
-    @override
-    Stream<TemplateState> mapEventToState(TemplateEvent event) async*{
-      if(event is LoadTemplateEvent) {
-        // keepArgsPlaceholder
+    void _onLoadTemplateEvent(event, emit,) {
+       // keepArgsPlaceholder
+        
         this.loadingItems.add(args);
-        yield TemplateLoadingState(loadingItems: this.loadingItems);
+        emit(TemplateLoadingState(loadingItems: this.loadingItems));
         final client = GraphQL.instance;
         client.then((client) => client
             .execute(TemplateQuery(variables: args))
@@ -184,15 +192,9 @@ class GqlBlocGenerator extends Generator {
             ? this.add(TemplateLoadedEvent(response.data?.#rootNode, args))
             : this.add(TemplateErrorEvent(response.errors)))
             .catchError((error) => this.add(TemplateExceptionEvent(error))));
-      // loadMoreEventHandlerPlaceholder
-      } else if (event is TemplateLoadedEvent){
-         yield TemplateLoadedState(event.#rootNode, event.withArgs);
-      } else if (event is TemplateErrorEvent){
-        yield TemplateErrorState(event.errors);
-      } else if (event is TemplateExceptionEvent){
-        yield TemplateExceptionState(event.exception);
-      }
-    }
+    } 
+   
+    // loadMoreEventHandlerPlaceholder
     
     // loadMoreMethodPlaceholder
 
@@ -206,7 +208,6 @@ class GqlBlocGenerator extends Generator {
     const TemplateEvent();
   }
   
-  
   class LoadTemplateEvent extends TemplateEvent {
     TemplateArguments args;
     bool keepPreviousArgs;
@@ -217,6 +218,7 @@ class GqlBlocGenerator extends Generator {
   }
   
   // loadMoreEventPlaceholder
+  
   class LoadingTemplateEvent extends TemplateEvent {
     LoadingTemplateEvent();
   
@@ -259,7 +261,9 @@ class GqlBlocGenerator extends Generator {
     @override
     List<Object> get props => [exception];
   }
+ 
   // States
+  
   abstract class TemplateState extends Equatable {
     const TemplateState();
   }
@@ -269,7 +273,6 @@ class GqlBlocGenerator extends Generator {
     List<Object> get props => [];
   }
   
-  
   class TemplateLoadingState extends TemplateState {
     List<dynamic>? loadingItems;
 
@@ -277,7 +280,6 @@ class GqlBlocGenerator extends Generator {
     @override
     List<Object> get props => [];
   }
-  
   
   class TemplateLoadedState extends TemplateState {
     TemplateNodeConnection #rootNode;
@@ -289,7 +291,6 @@ class GqlBlocGenerator extends Generator {
     List<Object> get props => [#rootNode];
   }
   
-  
   class TemplateErrorState extends TemplateState {
     final errors;
   
@@ -298,7 +299,6 @@ class GqlBlocGenerator extends Generator {
     @override
     List<Object> get props => [this.errors];
   }
-  
   
   class TemplateExceptionState extends TemplateState {
     final exception;
@@ -342,10 +342,10 @@ class GqlBlocGenerator extends Generator {
   """;
 
   late String loadMoreHandlerTemplate = """
-   } else if (event is LoadMoreTemplateEvent) {
+    void _onLoadMoreTemplateEvent(event, emit){
         final state = this.state;
         if (state is TemplateLoadedState) {
-          yield TemplateLoadingState();
+          emit(TemplateLoadingState());
           final client = GraphQL.instance;
           dynamic args = state.withArgs?.toJson();
           // coursorUpdatePlaceholder
@@ -357,6 +357,7 @@ class GqlBlocGenerator extends Generator {
               .catchError(
                   (error) => this.add(TemplateExceptionEvent(error))));
         }
+    }
   """;
 
   late String loadMoreMethodTemplate = """
@@ -385,6 +386,8 @@ class GqlBlocGenerator extends Generator {
         args = TemplateArguments.fromJson(previousArgs);
      }
   }
+ 
+ 
   """;
   bool isQuery(LibraryReader library) {
     return library.classes
