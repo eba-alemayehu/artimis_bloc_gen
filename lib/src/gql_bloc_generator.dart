@@ -10,33 +10,250 @@ class GqlBlocGenerator extends Generator {
 
   GqlBlocGenerator(this.builderOptions);
 
+  String? classname;
+  LibraryReader? library;
+
   @override
   FutureOr<String> generate(LibraryReader library, BuildStep buildStep) {
-    var buffer = StringBuffer();
     imports(library, buildStep);
-
-    final className = getClass(library).displayName;
-
-    String sourceCode = template;
-
-    if (getArgumentsClass(library) == null) {
-      sourceCode = clear_argumetns(sourceCode);
-    } else {
-      sourceCode = sourceCode.replaceAll('// keepArgsPlaceholder', keepArgsTemplate);
-    }
-    sourceCode = hydratedEditor(library, sourceCode);
-    sourceCode = sourceCode
-        .replaceAll('TemplateQuery',
-            "${getClassName(library)}${isQuery(library) ? 'Query' : 'Mutation'}")
-        .replaceAll('Template', getClassName(library))
-        .replaceAll('GraphQL.instance',
-            builderOptions.config['graphql_client']['object'].toString());
-
-    buffer.writeln(sourceCode);
-
+    var buffer = StringBuffer();
+    buffer.writeln(_writeBloc(library));
+    buffer.writeln(_writeEvent(library));
+    buffer.writeln(_writeState(library));
+    // imports(library, buildStep);
+    //
+    // final className = getClass(library).displayName;
+    //
+    // String sourceCode = template;
+    //
+    // if (getArgumentsClass(library) == null) {
+    //   sourceCode = clear_argumetns(sourceCode);
+    // } else {
+    //   sourceCode = sourceCode.replaceAll('// keepArgsPlaceholder', keepArgsTemplate);
+    // }
+    // sourceCode = hydratedEditor(library, sourceCode);
+    // sourceCode = sourceCode
+    //     .replaceAll('TemplateQuery',
+    //         "${getClassName(library)}${isQuery(library) ? 'Query' : 'Mutation'}")
+    //     .replaceAll('Template', getClassName(library))
+    //     .replaceAll('GraphQL.instance',
+    //         builderOptions.config['graphql_client']['object'].toString());
+    //
+    // buffer.writeln(sourceCode);
+    print(buffer.toString());
     return "${buffer.toString()}";
   }
 
+  String _writeBloc(LibraryReader library) {
+    return '''
+    class ${getClassName(library)}Bloc
+    extends Bloc<${getClassName(library)}Event, ${getClassName(library)}State> {
+      List<dynamic> loadingItems = [];
+  
+      ${getClassName(library)}Bloc() : super(${getClassName(library)}Initial()){
+          on<Load${getClassName(library)}Event>(_onLoad${getClassName(library)}Event);
+          on<${getClassName(library)}LoadedEvent>((event, emit) => ${getClassName(library)}LoadedState(event.${getNode(library).displayName}, event.withArgs));
+          on<${getClassName(library)}ErrorEvent>((event, emit) => ${getClassName(library)}ErrorState(event.errors));
+          on<${getClassName(library)}ExceptionEvent>((event, emit) => ${getClassName(library)}ExceptionState(event.exception));
+          on<LoadMore${getClassName(library)}Event>(_onLoadMore${getClassName(library)}Event);
+      }
+      
+      
+      void _onLoad${getClassName(library)}Event(event, emit,) {
+         ${getClassName(library)}Arguments args = event.args;
+  
+          final state = this.state;
+          if (event.keepPreviousArgs && state is ${getClassName(library)}LoadedState){
+              final previousArgs = state.withArgs?.toJson();
+              final currentArgs = args.toJson();
+              if(previousArgs != null){
+                  currentArgs.removeWhere((key, value) => value == null);
+                  previousArgs.addAll(currentArgs);
+                  args = ${getClassName(library)}Arguments.fromJson(previousArgs);
+              }
+          }
+          
+          this.loadingItems.add(args);
+          emit(${getClassName(library)}LoadingState(loadingItems: this.loadingItems));
+          final client = GraphQL.instance;
+          client.then((client) => client
+              .execute(${getClassName(library)}${(isQuery(library)?'Query':'Mutation')}(variables: args))
+              .then((response) => (response.errors == null)
+              ? this.add(${getClassName(library)}LoadedEvent(response.data?.${getNode(library).displayName}, args))
+              : this.add(${getClassName(library)}ErrorEvent(response.errors)))
+              .catchError((error) => this.add(${getClassName(library)}ExceptionEvent(error))));
+      } 
+
+      void _onLoadMore${getClassName(library)}Event(event, emit){
+            final state = this.state;
+            if (state is ${getClassName(library)}LoadedState) {
+              emit(${getClassName(library)}LoadingState());
+              final client = GraphQL.instance;
+              dynamic args = state.withArgs?.toJson();
+              // coursorUpdatePlaceholder
+              client.then((client) => client
+                  .execute(${getClassName(library)}${(isQuery(library)?'Query':'Mutation')}(variables: ${getClassName(library)}Arguments.fromJson(args)))
+                  .then((response) => (response.errors == null)
+                      ? ${getNode(library).displayName}LoadedMore(response.data?.${getNode(library).displayName}, state)
+                      : this.add(${getClassName(library)}ErrorEvent(response.errors)))
+                  .catchError(
+                      (error) => this.add(${getClassName(library)}ExceptionEvent(error))));
+            }
+        }
+    
+      ${_writeHydratedOverrideMethods(library)}
+    }
+    ''';
+  }
+
+  String _writeEvent(LibraryReader library) {
+    return '''
+    // Events
+    abstract class ${getClassName(library)}Event extends Equatable {
+      const ${getClassName(library)}Event();
+    }
+    
+    class Load${getClassName(library)}Event extends ${getClassName(library)}Event {
+      ${getClassName(library)}Arguments args;
+      bool keepPreviousArgs;
+      Load${getClassName(library)}Event(this.args, {this.keepPreviousArgs = false});
+    
+      @override
+      List<Object> get props => [args];
+    }
+    
+    class LoadMore${getClassName(library)}Event extends ${getClassName(library)}Event {
+      final ${getClassName(library)}Arguments? args;
+      LoadMore${getClassName(library)}Event(this.args);
+    
+      @override
+      List<Object> get props => [];
+    }
+    
+    class Loading${getClassName(library)}Event extends ${getClassName(library)}Event {
+      Loading${getClassName(library)}Event();
+    
+      @override
+      List<Object> get props => [];
+    }
+    
+    class ${getClassName(library)}LoadedEvent extends ${getClassName(library)}Event {
+      final ${getNode(library).displayName};
+      final ${getClassName(library)}Arguments? withArgs;
+    
+      ${getClassName(library)}LoadedEvent(this.${getNode(library).displayName}, this.withArgs);
+    
+      @override
+      List<Object> get props => [${getNode(library).displayName}];
+    }
+    
+    class ${getClassName(library)}LoadedMoreEvent extends ${getClassName(library)}Event {
+      final ${getNode(library).displayName};
+      final ${getClassName(library)}Arguments? withArgs;
+    
+      ${getClassName(library)}LoadedMoreEvent(this.${getNode(library).displayName}, this.withArgs);
+    
+      @override
+      List<Object> get props => [${getNode(library).displayName}];
+    }
+    
+    class ${getClassName(library)}ErrorEvent extends ${getClassName(library)}Event {
+      final errors;
+      ${getClassName(library)}ErrorEvent(this.errors);
+    
+      @override
+      List<Object> get props => [errors];
+    }
+    
+    class ${getClassName(library)}ExceptionEvent extends ${getClassName(library)}Event {
+      final exception;
+      ${getClassName(library)}ExceptionEvent(this.exception);
+    
+      @override
+      List<Object> get props => [exception];
+    }
+    ''';
+  }
+
+  String _writeState(LibraryReader library) {
+    return '''
+    // States
+    abstract class ${getClassName(library)}State extends Equatable {
+      const ${getClassName(library)}State();
+    }
+    
+    class ${getClassName(library)}Initial extends ${getClassName(library)}State {
+      @override
+      List<Object> get props => [];
+    }
+    
+    class ${getClassName(library)}LoadingState extends ${getClassName(library)}State {
+      List<dynamic>? loadingItems;
+    
+      ${getClassName(library)}LoadingState({this.loadingItems});
+      @override
+      List<Object> get props => [];
+    }
+    
+    class ${getClassName(library)}LoadedState extends ${getClassName(library)}State {
+      ${getClassName(library)}MutationPayload ${getNode(library).displayName};
+      final ${getClassName(library)}Arguments? withArgs;
+    
+      ${getClassName(library)}LoadedState(this.${getNode(library).displayName}, this.withArgs);
+    
+      @override
+      List<Object> get props => [${getNode(library).displayName}];
+    }
+    
+    class ${getClassName(library)}ErrorState extends ${getClassName(library)}State {
+      final errors;
+    
+      ${getClassName(library)}ErrorState(this.errors);
+    
+      @override
+      List<Object> get props => [this.errors];
+    }
+    
+    class ${getClassName(library)}ExceptionState extends ${getClassName(library)}State {
+      final exception;
+    
+      ${getClassName(library)}ExceptionState(this.exception);
+    
+      @override
+      List<Object> get props => [this.exception];
+    }
+    ''';
+  }
+
+  String _writeHydratedOverrideMethods(library){
+    return '''
+    @override
+      ${getClassName(library)}State? fromJson(Map<String, dynamic> json) {
+        try {
+          return ${getClassName(library)}LoadedState(${getClassName(library)}NodeConnection.fromJson(json), null);
+        } catch (_) {
+          return null;
+        }
+      }
+    
+      @override
+      Map<String, dynamic>? toJson(${getClassName(library)}State state) {
+        if (state is ${getClassName(library)}LoadedState) {
+          return state.${getNode(library).displayName}.toJson();
+        } else {
+          return null;
+        }
+      }
+    ''';
+  }
+
+  FieldElement getNode(library) {
+    return getClass(library).fields.firstWhere((e) {
+      return e.type.toString().contains("Node") ||
+          e.type.toString().contains("Payload") ||
+          e.type.toString().contains("Mutation");
+    });
+  }
   String clear_argumetns(String sourceCode) {
     sourceCode = sourceCode.replaceAll('this.loadingItems.add(args);', '');
     sourceCode = sourceCode.replaceAll('variables: event.args', '');
@@ -386,9 +603,11 @@ class GqlBlocGenerator extends Generator {
      }
   }
   """;
+
   bool isQuery(LibraryReader library) {
     return library.classes
         .where((e) => e.displayName.contains('\$Query'))
         .isNotEmpty;
   }
+
 }
