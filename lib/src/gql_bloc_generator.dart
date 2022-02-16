@@ -15,7 +15,6 @@ class GqlBlocGenerator extends Generator {
 
   @override
   FutureOr<String> generate(LibraryReader library, BuildStep buildStep) {
-    print(getArgumentField(library));
     getPayloadClass(library);
     imports(library, buildStep);
     var buffer = StringBuffer();
@@ -40,7 +39,7 @@ class GqlBlocGenerator extends Generator {
           on<${getClassName(library)}ExceptionEvent>((event, emit) => emit(${getClassName(library)}ExceptionState(event.exception)));
           ${getPageInfoField(library) != null ? "on<LoadMore${getClassName(library)}Event>(_onLoadMore${getClassName(library)}Event);" : ''}
       }
-      
+     
       void _onLoad${getClassName(library)}Event(event, emit,) {
           ${getArgumentField(library) != null ? "${getClassName(library)}Arguments args = event.args;" : ''}
           final state = this.state;
@@ -54,8 +53,10 @@ class GqlBlocGenerator extends Generator {
               : this.add(${getClassName(library)}ErrorEvent(response.errors)))
               .catchError((error) => this.add(${getClassName(library)}ExceptionEvent(error))));
       } 
-    
+ 
+  
       ${_writeLoadMoreMethod(library)}
+
 
       ${_writeHydratedOverrideMethods(library)}
     }
@@ -81,6 +82,7 @@ class GqlBlocGenerator extends Generator {
                       (error) => this.add(${getClassName(library)}ExceptionEvent(error))));
             }
         }
+        
     void ${getNode(library).displayName}LoadedMore(
         ${getPayloadClass(library).type} ${getNode(library).displayName}, ${getClassName(library)}LoadedState state) {
       ${getNode(library).displayName}?.edges = (state.${getNode(library).displayName}!.edges + ${getNode(library).displayName}.edges).toSet().toList();
@@ -117,7 +119,6 @@ class GqlBlocGenerator extends Generator {
       @override
       List<Object?> get props => [];
     }
-    
     
     class ${getClassName(library)}LoadedEvent extends ${getClassName(library)}Event {
       final ${getNode(library).displayName};
@@ -167,6 +168,7 @@ class GqlBlocGenerator extends Generator {
       List<Object?> get props => [];
     }
     
+    
     class ${getClassName(library)}LoadedState extends ${getClassName(library)}State {
       ${getPayloadClass(library).type} ${getNode(library).displayName};
       ${getArgumentField(library) != null? "final ${getClassName(library)}Arguments? withArgs;": ""}
@@ -185,7 +187,7 @@ class GqlBlocGenerator extends Generator {
       @override
       List<Object?> get props => [this.errors];
     }
-    
+     
     class ${getClassName(library)}ExceptionState extends ${getClassName(library)}State {
       final exception;
     
@@ -265,6 +267,7 @@ class GqlBlocGenerator extends Generator {
     return getClass(library).fields.firstWhere((e) {
       return e.type.toString().contains("Node") ||
           e.type.toString().contains("Payload") ||
+          e.type.toString().contains("Connection") ||
           e.type.toString().contains("Mutation");
     });
   }
@@ -424,7 +427,6 @@ class GqlBlocGenerator extends Generator {
               nodeField.type.toString().replaceAll("?", ""));
       return sourceCode;
     } catch (e) {
-      print(e);
       sourceCode = sourceCode.replaceAll('#rootNode', 'rootNode');
       return sourceCode;
     }
@@ -457,6 +459,7 @@ class GqlBlocGenerator extends Generator {
       File outputFile = File(buildStep.inputId.path);
       outputFile.writeAsStringSync(fileLines.join('\n'));
     } catch (e) {
+      print("============================466");
       print(e);
     }
   }
