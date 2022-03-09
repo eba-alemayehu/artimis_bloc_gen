@@ -83,12 +83,13 @@ class GqlBlocGenerator extends Generator {
             }
         }
         
-    void ${getNode(library).displayName}LoadedMore(
-        ${getPayloadClass(library).type} ${getNode(library).displayName}, ${getClassName(library)}LoadedState state) {
-      ${getNode(library).displayName}?.edges = (state.${getNode(library).displayName}!.edges + ${getNode(library).displayName}.edges).toSet().toList();
-    this.add(${getClassName(library)}LoadedEvent(${getNode(library).displayName}, state.withArgs));
-    }
+      void ${getNode(library).displayName}LoadedMore(
+          ${getPayloadClass(library).type} ${getNode(library).displayName}, ${getClassName(library)}LoadedState state) {
+        ${getNode(library).displayName}?.edges = (state.${getNode(library).displayName}!.edges + ${getNode(library).displayName}.edges).toSet().toList();
+      this.add(${getClassName(library)}LoadedEvent(${getNode(library).displayName}, state.withArgs));
+      }
     ''';
+
     }
     return '';
   }
@@ -96,7 +97,6 @@ class GqlBlocGenerator extends Generator {
   String _writeEvent(LibraryReader library) {
     return '''
     // Events
-    
     abstract class ${getClassName(library)}Event extends Equatable {
       const ${getClassName(library)}Event();
     }
