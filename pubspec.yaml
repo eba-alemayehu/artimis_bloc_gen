@@ -1,5 +1,5 @@
-name: gql_bloc_gen
-description: A new Flutter package project.
+name: artemis_bloc_gen
+description: Generate bloc for artimis generated classes
 version: 0.0.1
 homepage:
 

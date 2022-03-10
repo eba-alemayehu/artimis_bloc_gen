@@ -1,7 +1,7 @@
 builders:
-  gqlBlogBuilder:
-    import: "package:gql_bloc_gen/gql_bloc_gen.dart"
-    builder_factories: ["gqlBlogBuilder"]
+  artemisBlocBuilder:
+    import: "package:artmis_bloc_gen/artemis_bloc_gen.dart"
+    builder_factories: ["artemisBlocBuilder"]
     build_extensions: {".dart": [".g.part"]}
     auto_apply: dependents
     build_to: cache
