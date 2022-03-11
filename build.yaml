@@ -1,8 +1,10 @@
 builders:
-  artemisBlocBuilder:
-    import: "package:artmis_bloc_gen/artemis_bloc_gen.dart"
-    builder_factories: ["artemisBlocBuilder"]
-    build_extensions: {".dart": [".g.part"]}
+  gql_bloc_gen:
+    import: "package:gql_bloc_gen/gql_bloc_gen.dart"
+    builder_factories: ["gqlBlogBuilder"]
+    # The `partId` argument to `SharedPartBuilder` is "some_cool_builder"
+    build_extensions: {".dart": [".info.dart"]}
     auto_apply: dependents
     build_to: cache
-    applies_builders: ["source_gen|combining_builder", "artemis"]
+    # To copy the `.g.part` content into `.g.dart` in the source tree
+    applies_builders: ["source_gen|combining_builder"]
