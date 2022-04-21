@@ -172,9 +172,9 @@ class GqlBlocGenerator extends Generator {
   class TemplateBloc extends Bloc<TemplateEvent, TemplateState> {
     TemplateBloc() : super(TemplateInitial()) {
       on<LoadTemplateEvent>(_onLoadTemplateEvent);
-      on<TemplateLoadedEvent>((event, emit) => TemplateLoadedState(event.#rootNode, event.withArgs));
-      on<TemplateErrorEvent>((event, emit) => TemplateErrorState(event.errors));
-      on<TemplateExceptionEvent>((event, emit) => TemplateExceptionState(event.exception));
+      on<TemplateLoadedEvent>((event, emit) => emit(TemplateLoadedState(event.#rootNode, event.withArgs)));
+      on<TemplateErrorEvent>((event, emit) => emit(TemplateErrorState(event.errors)));
+      on<TemplateExceptionEvent>((event, emit) => emit(TemplateExceptionState(event.exception)));
       // loadMoreEventHandlerPlaceholderOn
     }
     
