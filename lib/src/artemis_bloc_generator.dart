@@ -94,7 +94,7 @@ class GqlBlocGenerator extends Generator {
         ((isQuery(library))
             ? 'hydrated_bloc/hydrated_bloc.dart\';'
             : 'flutter_bloc/flutter_bloc.dart\';'));
-
+    imports.write("import \'package:flutter\/foundation.dart\';");
     imports.write(
         'import \'package:${builderOptions.config['graphql_client']['import'].toString()}\';');
     updateImports(buildStep, imports.toString());
@@ -169,6 +169,12 @@ class GqlBlocGenerator extends Generator {
   }
 
   late String template = """  
+  
+ Future<dynamic> load(TemplateQuery query) async {
+        final client = await GraphQL.instance;
+        final response = await client.execute(query);
+        return response;
+ }
   class TemplateBloc extends Bloc<TemplateEvent, TemplateState> {
     TemplateBloc() : super(TemplateInitial()) {
       on<LoadTemplateEvent>(_onLoadTemplateEvent);
@@ -185,13 +191,11 @@ class GqlBlocGenerator extends Generator {
         
         this.loadingItems.add(args);
         emit(TemplateLoadingState(loadingItems: this.loadingItems));
-        final client = GraphQL.instance;
-        client.then((client) => client
-            .execute(TemplateQuery(variables: args))
-            .then((response) => (response.errors == null)
+        //final client = GraphQL.instance;
+        compute(load, TemplateQuery(variables: args)).then((response) => (response.errors == null)
             ? this.add(TemplateLoadedEvent(response.data?.#rootNode, args))
             : this.add(TemplateErrorEvent(response.errors)))
-            .catchError((error) => this.add(TemplateExceptionEvent(error))));
+            .catchError((error) => this.add(TemplateExceptionEvent(error)));
     } 
    
     // loadMoreEventHandlerPlaceholder
