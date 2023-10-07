@@ -1,6 +1,6 @@
 name: artemis_bloc_gen
 description: Generate bloc for artimis generated classes
-version: 0.0.14
+version: 1.0.0
 homepage:
 
 environment:
@@ -9,7 +9,7 @@ environment:
 
 dependencies:
   analyzer:
-  build: ^2.2.1
+  build:
   flutter:
     sdk: flutter
   source_gen:

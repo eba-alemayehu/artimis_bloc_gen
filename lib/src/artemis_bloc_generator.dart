@@ -13,7 +13,7 @@ class GqlBlocGenerator extends Generator {
   @override
   FutureOr<String> generate(LibraryReader library, BuildStep buildStep) {
     var buffer = StringBuffer();
-    imports(library, buildStep);
+    buffer.writeln(imports(library));
 
     final className = getClass(library).displayName;
 
@@ -28,10 +28,10 @@ class GqlBlocGenerator extends Generator {
     sourceCode = hydratedEditor(library, sourceCode);
     sourceCode = sourceCode
         .replaceAll('TemplateQuery',
-            "${getClassName(library)}${isQuery(library) ? 'Query' : 'Mutation'}")
+        "${getClassName(library)}${isQuery(library) ? 'Query' : 'Mutation'}")
         .replaceAll('Template', getClassName(library))
         .replaceAll('GraphQL.instance',
-            builderOptions.config['graphql_client']['object'].toString());
+        builderOptions.config['graphql_client']['object'].toString());
     buffer.writeln(sourceCode);
     // print(buffer.toString());
     return "${buffer.toString()}";
@@ -68,14 +68,14 @@ class GqlBlocGenerator extends Generator {
 
   ClassElement getClass(LibraryReader library) {
     return library.classes.firstWhere((e) =>
-        e.displayName.contains('\$Query') ||
+    e.displayName.contains('\$Query') ||
         e.displayName.contains('\$Mutation'));
   }
 
   getArgumentsClass(LibraryReader library) {
     final argumentClass = library.classes
         .firstWhere((e) =>
-            e.displayName == getClass(library).displayName.replaceAll("\$", ""))
+    e.displayName == getClass(library).displayName.replaceAll("\$", ""))
         .fields
         .where((e) => e.type.toString().endsWith("Arguments"));
     return (argumentClass.isEmpty) ? null : argumentClass.first;
@@ -88,16 +88,20 @@ class GqlBlocGenerator extends Generator {
         .replaceAll('\$Mutation', '');
   }
 
-  void imports(LibraryReader library, buildStep) {
+  String imports(LibraryReader library,) {
     var imports = StringBuffer();
     imports.writeln('import \'package:' +
         ((isQuery(library))
             ? 'hydrated_bloc/hydrated_bloc.dart\';'
             : 'flutter_bloc/flutter_bloc.dart\';'));
     imports.write("import \'package:flutter\/foundation.dart\';");
+    imports.write("import \'package:equatable\/equatable.dart\';");
     imports.write(
         'import \'package:${builderOptions.config['graphql_client']['import'].toString()}\';');
-    updateImports(buildStep, imports.toString());
+    imports.write(
+        'import \'package:${library.element.source.toString().substring(1).replaceFirst("lib/", "")}\';');
+    // updateImports(buildStep, imports.toString());
+    return imports.toString();
   }
 
   String hydratedEditor(LibraryReader library, String sourceCode) {
@@ -108,8 +112,7 @@ class GqlBlocGenerator extends Generator {
             e.type.toString().contains("Mutation");
       });
 
-      if (isQuery(library) &&
-          nodeField.type.toString().contains("Connection")) {
+      if (isQuery(library)) {
         sourceCode = sourceCode
             .replaceAll('Bloc<', 'HydratedBloc<')
             .replaceAll('// fromJsonPlaceholder', fromJsonTemplate)
@@ -127,7 +130,7 @@ class GqlBlocGenerator extends Generator {
       sourceCode = sourceCode
           .replaceAll('#rootNode', nodeField.displayName)
           .replaceAll('TemplateNodeConnection',
-              nodeField.type.toString().replaceAll("?", ""));
+          nodeField.type.toString().replaceAll("?", ""));
       return sourceCode;
     } catch (e) {
       print(e);
@@ -140,7 +143,7 @@ class GqlBlocGenerator extends Generator {
     sourceCode = sourceCode
         .replaceAll('// loadMoreEventHandlerPlaceholderOn', 'on<LoadMoreTemplateEvent>(_onLoadMoreTemplateEvent);')
         .replaceAll(
-            '// loadMoreEventHandlerPlaceholder', loadMoreHandlerTemplate)
+        '// loadMoreEventHandlerPlaceholder', loadMoreHandlerTemplate)
         .replaceAll('// loadMoreMethodPlaceholder', loadMoreMethodTemplate)
         .replaceAll('// loadMoreEventPlaceholder', loadMoreEventTemplate)
         .replaceAll('// coursorUpdatePlaceholder', coursorUpdateTemplate);
@@ -150,7 +153,7 @@ class GqlBlocGenerator extends Generator {
   bool hasPageInfo(LibraryReader library, FieldElement nodeField) {
     return library.classes
         .firstWhere((e) =>
-            e.displayName == nodeField.type.toString().replaceAll('?', ''))
+    e.displayName == nodeField.type.toString().replaceAll('?', ''))
         .fields
         .where((e) => e.displayName == "pageInfo")
         .isNotEmpty;
@@ -176,13 +179,17 @@ class GqlBlocGenerator extends Generator {
         return response;
  }
   class TemplateBloc extends Bloc<TemplateEvent, TemplateState> {
-    TemplateBloc() : super(TemplateInitial()) {
+    
+    TemplateBloc({this.id = ''}) : super(TemplateInitial()) {
       on<LoadTemplateEvent>(_onLoadTemplateEvent);
       on<TemplateLoadedEvent>((event, emit) => emit(TemplateLoadedState(event.#rootNode, event.withArgs)));
       on<TemplateErrorEvent>((event, emit) => emit(TemplateErrorState(event.errors)));
       on<TemplateExceptionEvent>((event, emit) => emit(TemplateExceptionState(event.exception)));
       // loadMoreEventHandlerPlaceholderOn
     }
+    
+    @override
+    final String id; 
     
     List<dynamic> loadingItems = [];
     

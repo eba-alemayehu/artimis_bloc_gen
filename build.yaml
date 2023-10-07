@@ -3,8 +3,21 @@ builders:
     import: "package:artemis_bloc_gen/artemis_bloc_gen.dart"
     builder_factories: ["artemisBlocBuilder"]
     # The `partId` argument to `SharedPartBuilder` is "some_cool_builder"
-    build_extensions: {".dart": [".info.dart"]}
+    build_extensions: {".graphql.dart": [".bloc.dart"]}
     auto_apply: dependents
-    build_to: cache
+    build_to: source
     # To copy the `.g.part` content into `.g.dart` in the source tree
-    applies_builders: ["source_gen|combining_builder", 'artemis']
+#    applies_builders: ["source_gen|combining_builder", 'artemis']
+#    required_inputs: ['artemis']
+
+
+#      # library URI containing the builder - maps to `lib/member_count_library_generator.dart`
+#      import: "package:source_gen_example/builder.dart"
+#      # Name of the function in the above library to call.
+#      builder_factories: [ "metadataLibraryBuilder" ]
+#      # The mapping from the source extension to the generated file extension
+#      build_extensions: { ".dart": [ ".info.dart" ] }
+#      # Will automatically run on any package that depends on it
+#      auto_apply: dependents
+#      # Generate the output directly into the package, not to a hidden cache dir
+#      build_to: source
