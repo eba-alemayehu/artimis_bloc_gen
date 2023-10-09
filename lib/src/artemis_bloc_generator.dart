@@ -30,7 +30,7 @@ class GqlBlocGenerator extends Generator {
         .replaceAll('TemplateQuery',
         "${getClassName(library)}${isQuery(library) ? 'Query' : 'Mutation'}")
         .replaceAll('Template', getClassName(library))
-        .replaceAll('GraphQL.instance',
+        .replaceAll('{load}',
         builderOptions.config['graphql_client']['object'].toString());
     buffer.writeln(sourceCode);
     // print(buffer.toString());
@@ -96,6 +96,8 @@ class GqlBlocGenerator extends Generator {
             : 'flutter_bloc/flutter_bloc.dart\';'));
     imports.write("import \'package:flutter\/foundation.dart\';");
     imports.write("import \'package:equatable\/equatable.dart\';");
+    imports.write("import \'package:artemis\/artemis.dart\';");
+    imports.write("import \'package:get_it\/get_it.dart\';");
     imports.write(
         'import \'package:${builderOptions.config['graphql_client']['import'].toString()}\';');
     imports.write(
@@ -173,11 +175,7 @@ class GqlBlocGenerator extends Generator {
 
   late String template = """  
   
- Future<dynamic> load(TemplateQuery query) async {
-        final client = await GraphQL.instance;
-        final response = await client.execute(query);
-        return response;
- }
+ // execute query function 
   class TemplateBloc extends Bloc<TemplateEvent, TemplateState> {
     
     TemplateBloc({this.id = ''}) : super(TemplateInitial()) {
@@ -199,7 +197,7 @@ class GqlBlocGenerator extends Generator {
         this.loadingItems.add(args);
         emit(TemplateLoadingState(loadingItems: this.loadingItems));
         //final client = GraphQL.instance;
-        compute(load, TemplateQuery(variables: args)).then((response) => (response.errors == null)
+        {load}(TemplateQuery(variables: args)).then((response) => (response.errors == null)
             ? this.add(TemplateLoadedEvent(response.data?.#rootNode, args))
             : this.add(TemplateErrorEvent(response.errors)))
             .catchError((error) => this.add(TemplateExceptionEvent(error)));
@@ -357,16 +355,15 @@ class GqlBlocGenerator extends Generator {
         final state = this.state;
         if (state is TemplateLoadedState) {
           emit(TemplateLoadingState());
-          final client = GraphQL.instance;
           dynamic args = state.withArgs?.toJson();
           // coursorUpdatePlaceholder
-          client.then((client) => client
-              .execute(TemplateQuery(variables: TemplateArguments.fromJson(args)))
+         
+          {load}(TemplateQuery(variables: TemplateArguments.fromJson(args)))
               .then((response) => (response.errors == null)
                   ? #rootNodeLoadedMore(response.data?.#rootNode, state)
-                  : this.add(TemplateErrorEvent(response.errors)))
+                  : add(TemplateErrorEvent(response.errors)))
               .catchError(
-                  (error) => this.add(TemplateExceptionEvent(error))));
+                  (error) => add(TemplateExceptionEvent(error)));
         }
     }
   """;
