@@ -113,9 +113,6 @@ class GqlListGenerator extends Generator {
     import 'package:flutter/material.dart';
     import 'package:flutter_bloc/flutter_bloc.dart';
     import 'package:flutter_svg/flutter_svg.dart';
-    import 'package:guzo_crew/config/localization/localization_keys.g.dart';
-    import 'package:guzo_crew/constants/size.dart';
-    import 'package:guzo_crew/modules/trips/widgets/trip_list_item.dart';
     import 'package:observe_internet_connectivity/observe_internet_connectivity.dart';
     import 'package:pull_to_refresh/pull_to_refresh.dart'
         show RefreshController, SmartRefresher, WaterDropHeader;
